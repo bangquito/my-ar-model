@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AR Model Viewer</title>
+  <script type="module"
+    src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js">
+  </script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #111;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      font-family: sans-serif;
+      color: white;
+    }
+    h1 { margin-bottom: 16px; font-size: 1.2rem; opacity: 0.8; }
+    model-viewer {
+      width: 90vw;
+      max-width: 600px;
+      height: 70vh;
+      background: #1a1a2e;
+      border-radius: 16px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Tap the AR button to place in your space</h1>
+
+  <model-viewer
+    src="model.glb"                   <!-- ← change to your filename -->
+    animation-name="ArmatureAction"   <!-- ← change to your animation name -->
+    autoplay
+    ar
+    ar-modes="webxr scene-viewer quick-look"
+    camera-controls
+    auto-rotate
+    shadow-intensity="1"
+    alt="Animated 3D Model">
+
+    <button slot="ar-button" style="
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #fff;
+      color: #111;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 30px;
+      font-size: 1rem;
+      font-weight: bold;
+      cursor: pointer;
+    ">
+      📱 View in AR
+    </button>
+
+  </model-viewer>
+</body>
+</html>
+```
+
+4. Click **Commit changes**
+
+---
+
+## Step 6: Find Your Animation Name
+
+You need the exact animation name from your GLB. Easiest way:
+
+1. Go to **modelviewer.dev/editor**
+2. Drag your `.glb` file in
+3. Look at the **Animation** panel — copy the name exactly
+4. Paste it into `animation-name="..."` in your HTML
+
+---
+
+## Step 7: Enable GitHub Pages
+
+1. In your repo, go to **Settings** (top menu)
+2. Left sidebar → **Pages**
+3. Under **Source**, select:
+   - Branch: **main**
+   - Folder: **/ (root)**
+4. Click **Save**
+5. Wait ~1–2 minutes
+
+Your live URL will appear as:
+```
+https://YOUR-USERNAME.github.io/my-ar-model/
