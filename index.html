@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta
     name="viewport"
-    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
   />
   <title>WebAR Model Viewer</title>
 
@@ -21,16 +21,41 @@
       font-family: Arial, sans-serif;
     }
 
-    canvas {
+    body {
+      position: relative;
+    }
+
+    a-scene {
       position: fixed !important;
       inset: 0;
+      width: 100% !important;
+      height: 100% !important;
+    }
+
+    video {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+      z-index: 1 !important;
+      background: transparent !important;
+    }
+
+    canvas {
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      z-index: 2 !important;
+      background: transparent !important;
     }
 
     .overlay {
       position: fixed;
       left: 50%;
       transform: translateX(-50%);
-      z-index: 20;
+      z-index: 10;
       text-align: center;
       color: #fff;
       background: rgba(0, 0, 0, 0.55);
@@ -39,6 +64,7 @@
       font-size: 14px;
       line-height: 1.4;
       backdrop-filter: blur(4px);
+      white-space: nowrap;
     }
 
     .top {
@@ -57,7 +83,7 @@
   <a-scene
     mindar-image="imageTargetSrc: ./target.mind; uiScanning: yes; uiLoading: yes;"
     color-space="sRGB"
-    renderer="alpha: true; colorManagement: true; physicallyCorrectLights: true"
+    renderer="alpha: true; antialias: true; colorManagement: true; physicallyCorrectLights: true"
     vr-mode-ui="enabled: false"
     device-orientation-permission-ui="enabled: false"
   >
@@ -67,8 +93,8 @@
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-    <a-entity light="type: ambient; intensity: 1"></a-entity>
-    <a-entity light="type: directional; intensity: 1.2" position="1 2 1"></a-entity>
+    <a-entity light="type: ambient; intensity: 1.2"></a-entity>
+    <a-entity light="type: directional; intensity: 1.5" position="1 2 1"></a-entity>
 
     <a-entity mindar-image-target="targetIndex: 0">
       <a-gltf-model
@@ -76,7 +102,7 @@
         position="0 0 0.1"
         rotation="0 0 0"
         scale="0.2 0.2 0.2"
-        animation="property: scale; from: 0.01 0.01 0.01; to: 0.2 0.2 0.2; dur: 800; easing: easeOutBack; startEvents: targetFound"
+        animation="property: scale; from: 0.01 0.01 0.01; to: 0.2 0.2 0.2; dur: 800; easing: easeOutBack;"
       ></a-gltf-model>
     </a-entity>
   </a-scene>
