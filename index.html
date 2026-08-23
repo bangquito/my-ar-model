@@ -1,28 +1,1614 @@
 <!DOCTYPE html>
-<html>
-  <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>WebAR MindAR SLAM</title>
-    <!-- Include MindAR A-Frame library -->
-    <script src="https://aframe.io"></script>
-    <script src="https://jsdelivr.net"></script>
-  </head>
-  <body style="margin: 0; overflow: hidden;">
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
 
-    <!-- 
-      The scene initializes and requests camera permissions instantly on load.
-      'uiLoading: no' and 'uiScanning: no' hide native engine overlays.
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0,
+    maximum-scale=1.0, user-scalable=no"
+  >
+
+  <title>ELK Hybrid Image → SLAM AR</title>
+
+  <!-- A-Frame -->
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+
+  <!-- Animation Mixer -->
+  <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.5.0/dist/aframe-extras.min.js"></script>
+
+  <style>
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+
+      width: 100%;
+      height: 100%;
+
+      overflow: hidden;
+
+      background: #000;
+    }
+
+    body {
+      position: fixed;
+    }
+
+    a-scene {
+      position: absolute;
+
+      width: 100%;
+      height: 100%;
+    }
+
+    .a-enter-vr {
+      display: none !important;
+    }
+
+    /* ------------------------
+       UI
+    ------------------------- */
+
+    #overlay {
+      position: fixed;
+
+      inset: 0;
+
+      z-index: 9999;
+
+      pointer-events: none;
+
+      font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+    }
+
+    #startScreen {
+      position: absolute;
+
+      inset: 0;
+
+      display: flex;
+      flex-direction: column;
+
+      justify-content: center;
+      align-items: center;
+
+      gap: 18px;
+
+      background: rgba(0, 0, 0, 0.82);
+
+      color: white;
+
+      pointer-events: auto;
+    }
+
+    #startAR {
+      padding: 14px 26px;
+
+      border: none;
+      border-radius: 10px;
+
+      background: white;
+      color: black;
+
+      font-size: 18px;
+      font-weight: 600;
+
+      cursor: pointer;
+    }
+
+    #status {
+      position: absolute;
+
+      top: 25px;
+      left: 50%;
+
+      transform: translateX(-50%);
+
+      padding: 10px 16px;
+
+      border-radius: 10px;
+
+      background: rgba(0, 0, 0, 0.65);
+
+      color: white;
+
+      font-size: 14px;
+
+      text-align: center;
+
+      pointer-events: none;
+
+      white-space: nowrap;
+    }
+
+    #resetButton {
+      position: absolute;
+
+      right: 20px;
+      bottom: 25px;
+
+      padding: 10px 16px;
+
+      border: none;
+      border-radius: 8px;
+
+      background: rgba(0, 0, 0, 0.7);
+
+      color: white;
+
+      font-size: 14px;
+
+      pointer-events: auto;
+
+      display: none;
+    }
+  </style>
+</head>
+
+
+<body>
+
+  <!-- ========================
+       DOM OVERLAY
+  ========================= -->
+
+  <div id="overlay">
+
+    <div id="startScreen">
+
+      <div>
+        Point your camera toward the elk image
+      </div>
+
+      <button id="startAR">
+        Start AR
+      </button>
+
+    </div>
+
+    <div
+      id="status"
+      style="display:none;"
+    >
+      Starting AR...
+    </div>
+
+    <button id="resetButton">
+      Reset Position
+    </button>
+
+  </div>
+
+
+  <!-- ========================
+       A-FRAME SCENE
+  ========================= -->
+
+  <a-scene
+
+    id="scene"
+
+    embedded
+
+    renderer="
+      colorManagement: true;
+      physicallyCorrectLights: true;
+      antialias: true;
+      alpha: true;
+    "
+
+    vr-mode-ui="enabled: false"
+
+    device-orientation-permission-ui="enabled: false"
+
+  >
+
+    <!-- ----------------------
+         ASSETS
+    ----------------------- -->
+
+    <a-assets>
+
+      <a-asset-item
+        id="elkModel"
+        src="./elkfin.glb">
+      </a-asset-item>
+
+    </a-assets>
+
+
+    <!-- ----------------------
+         XR CAMERA
+    ----------------------- -->
+
+    <a-camera
+
+      id="camera"
+
+      position="0 0 0"
+
+      look-controls="enabled: false">
+
+    </a-camera>
+
+
+    <!-- ----------------------
+         LIGHTING
+    ----------------------- -->
+
+    <a-entity
+
+      light="
+        type: ambient;
+        intensity: 1.5;
+      ">
+
+    </a-entity>
+
+
+    <a-entity
+
+      light="
+        type: directional;
+        intensity: 1;
+      "
+
+      position="1 2 1">
+
+    </a-entity>
+
+
+    <!-- ======================
+         SLAM WORLD ANCHOR
+    ======================= -->
+
+    <!--
+      Unlike MindAR, this anchor is NOT parented
+      to the detected image.
+
+      Its transform exists directly inside the
+      WebXR SLAM coordinate system.
     -->
-    <a-scene mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; maxTrack: 1; uiLoading: no; uiScanning: no;" embedded color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
-      
-      <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
-      <!-- The 3D content attached to your primary image target index -->
-      
-        <a-box position="0 0 0" scale="0.5 0.5 0.5" color="blue"></a-box>
-      
-      
-    </a-scene>
+    <a-entity
 
-  </body>
+      id="worldAnchor"
+
+      visible="false">
+
+      <!--
+        MindAR uses target-relative units.
+
+        We recreate that coordinate scale here
+        so your old elk transform can remain
+        approximately the same.
+      -->
+
+      <a-entity id="targetSpace">
+
+        <a-entity
+
+          id="elk"
+
+          gltf-model="#elkModel"
+
+          position="-0.8 0 0"
+
+          rotation="90 0 0"
+
+          scale="0.5 0.5 0.5"
+
+          visible="true">
+
+        </a-entity>
+
+      </a-entity>
+
+    </a-entity>
+
+  </a-scene>
+
+
+  <script>
+
+    /* ==========================================================
+       CONFIGURATION
+    ========================================================== */
+
+    /*
+      IMPORTANT:
+
+      This is NOT targets.mind.
+
+      Use the actual image file that you originally
+      uploaded into the MindAR compiler.
+    */
+
+    const TARGET_IMAGE_URL = "./target.jpg";
+
+
+    /*
+      REAL physical width of target.
+
+      Example:
+
+      20 cm printed image = 0.20 meters
+      15 cm printed image = 0.15 meters
+      10 cm printed image = 0.10 meters
+    */
+
+    const TARGET_WIDTH_METERS = 0.20;
+
+
+
+    /* ==========================================================
+       ELEMENTS
+    ========================================================== */
+
+    const scene =
+      document.querySelector("#scene");
+
+    const elk =
+      document.querySelector("#elk");
+
+    const targetSpace =
+      document.querySelector("#targetSpace");
+
+    const worldAnchor =
+      document.querySelector("#worldAnchor");
+
+
+    const overlay =
+      document.querySelector("#overlay");
+
+    const startScreen =
+      document.querySelector("#startScreen");
+
+    const startButton =
+      document.querySelector("#startAR");
+
+    const statusElement =
+      document.querySelector("#status");
+
+    const resetButton =
+      document.querySelector("#resetButton");
+
+
+
+    /* ==========================================================
+       STATE
+    ========================================================== */
+
+    let xrSession = null;
+
+    let xrAnchor = null;
+
+    let modelLoaded = false;
+
+    let localized = false;
+
+    let animationStarted = false;
+
+    let anchorRequestStarted = false;
+
+
+
+    /* ==========================================================
+       STATUS UI
+    ========================================================== */
+
+    function setStatus(message) {
+
+      statusElement.textContent = message;
+
+      statusElement.style.display = "block";
+
+    }
+
+
+    function hideStatus() {
+
+      statusElement.style.display = "none";
+
+    }
+
+
+
+    /* ==========================================================
+       WAIT FOR A-FRAME
+    ========================================================== */
+
+    function waitForScene() {
+
+      if (scene.hasLoaded) {
+
+        return Promise.resolve();
+
+      }
+
+      return new Promise((resolve) => {
+
+        scene.addEventListener(
+
+          "loaded",
+
+          resolve,
+
+          { once: true }
+
+        );
+
+      });
+
+    }
+
+
+
+    /* ==========================================================
+       LOAD IMAGE FOR WEBXR TRACKING
+    ========================================================== */
+
+    async function loadTrackingImage(url) {
+
+      const response = await fetch(
+
+        url,
+
+        {
+          cache: "no-store"
+        }
+
+      );
+
+
+      if (!response.ok) {
+
+        throw new Error(
+
+          `Cannot load tracking image: ${url}`
+
+        );
+
+      }
+
+
+      const blob =
+        await response.blob();
+
+
+      const bitmap =
+        await createImageBitmap(blob);
+
+
+      return bitmap;
+
+    }
+
+
+
+    /* ==========================================================
+       ELK MODEL
+    ========================================================== */
+
+    elk.addEventListener(
+
+      "model-loaded",
+
+      () => {
+
+        console.log(
+          "✅ ELK GLB LOADED"
+        );
+
+
+        modelLoaded = true;
+
+
+        const object =
+          elk.getObject3D("mesh");
+
+
+        if (!object) {
+
+          console.error(
+            "❌ NO ELK MESH FOUND"
+          );
+
+          return;
+
+        }
+
+
+        object.traverse((node) => {
+
+          if (
+            node.isMesh ||
+            node.isSkinnedMesh
+          ) {
+
+            node.frustumCulled = false;
+
+          }
+
+
+          if (node.material) {
+
+            const materials =
+              Array.isArray(node.material)
+
+                ? node.material
+
+                : [node.material];
+
+
+            materials.forEach(
+
+              (material) => {
+
+                material.side =
+                  THREE.DoubleSide;
+
+                material.needsUpdate =
+                  true;
+
+              }
+
+            );
+
+          }
+
+        });
+
+
+        console.log(
+          "✅ ELK MESH READY"
+        );
+
+      }
+
+    );
+
+
+    elk.addEventListener(
+
+      "model-error",
+
+      (event) => {
+
+        console.error(
+
+          "❌ ELK GLB LOAD ERROR",
+
+          event
+
+        );
+
+      }
+
+    );
+
+
+
+    /* ==========================================================
+       ANIMATION
+    ========================================================== */
+
+    function startAnimation() {
+
+      if (
+        !modelLoaded ||
+        animationStarted
+      ) {
+
+        return;
+
+      }
+
+
+      elk.setAttribute(
+
+        "animation-mixer",
+
+        {
+
+          clip: "*",
+
+          loop: "repeat",
+
+          repetitions: Infinity,
+
+          timeScale: 1
+
+        }
+
+      );
+
+
+      animationStarted = true;
+
+
+      console.log(
+        "▶ ELK ANIMATION STARTED"
+      );
+
+    }
+
+
+
+    function resetAnimation() {
+
+      if (!animationStarted) {
+
+        return;
+
+      }
+
+
+      elk.removeAttribute(
+        "animation-mixer"
+      );
+
+
+      animationStarted = false;
+
+
+      console.log(
+        "⏹ ELK ANIMATION RESET"
+      );
+
+    }
+
+
+
+    /* ==========================================================
+       APPLY XR POSE TO WORLD ANCHOR
+    ========================================================== */
+
+    function applyPose(pose) {
+
+      if (!pose) return;
+
+
+      const transform =
+        pose.transform;
+
+
+      const position =
+        transform.position;
+
+
+      const orientation =
+        transform.orientation;
+
+
+      const object =
+        worldAnchor.object3D;
+
+
+      object.position.set(
+
+        position.x,
+        position.y,
+        position.z
+
+      );
+
+
+      object.quaternion.set(
+
+        orientation.x,
+        orientation.y,
+        orientation.z,
+        orientation.w
+
+      );
+
+
+      object.updateMatrixWorld(true);
+
+    }
+
+
+
+    /* ==========================================================
+       COPY POSE
+
+       XRPose is only valid for its current XR frame.
+
+       So before async anchor creation we copy
+       the actual numerical pose.
+    ========================================================== */
+
+    function copyPose(pose) {
+
+      return {
+
+        transform: {
+
+          position: {
+
+            x: pose.transform.position.x,
+
+            y: pose.transform.position.y,
+
+            z: pose.transform.position.z
+
+          },
+
+
+          orientation: {
+
+            x: pose.transform.orientation.x,
+
+            y: pose.transform.orientation.y,
+
+            z: pose.transform.orientation.z,
+
+            w: pose.transform.orientation.w
+
+          }
+
+        }
+
+      };
+
+    }
+
+
+
+    /* ==========================================================
+       LOCK IMAGE POSITION INTO SLAM SPACE
+    ========================================================== */
+
+    function lockToWorld(imagePose) {
+
+      if (localized) {
+
+        return;
+
+      }
+
+
+      console.log(
+        "🎯 IMAGE LOCALIZED"
+      );
+
+
+      /*
+        Copy initial image pose directly into
+        the WebXR SLAM coordinate system.
+      */
+
+      applyPose(imagePose);
+
+
+      localized = true;
+
+
+      worldAnchor.setAttribute(
+
+        "visible",
+
+        true
+
+      );
+
+
+      startAnimation();
+
+
+      setStatus(
+        "✓ Elk locked in world"
+      );
+
+
+      resetButton.style.display =
+        "block";
+
+
+      /*
+        Status disappears shortly after locking.
+      */
+
+      setTimeout(() => {
+
+        if (localized) {
+
+          hideStatus();
+
+        }
+
+      }, 1200);
+
+
+      console.log(
+        "🔒 SLAM WORLD LOCK ACTIVE"
+      );
+
+    }
+
+
+
+    /* ==========================================================
+       IMAGE → ANCHOR
+
+       First detection initializes the world position.
+
+       We DO NOT continuously update from the image.
+    ========================================================== */
+
+    function handleImageDetection(
+
+      frame,
+
+      result,
+
+      referenceSpace
+
+    ) {
+
+      if (localized) {
+
+        return;
+
+      }
+
+
+      /*
+        Get image position relative to the same
+        SLAM reference space A-Frame uses.
+      */
+
+      const pose =
+        frame.getPose(
+
+          result.imageSpace,
+
+          referenceSpace
+
+        );
+
+
+      if (!pose) {
+
+        return;
+
+      }
+
+
+      /*
+        Only lock when the target is genuinely tracked,
+        not merely estimated/emulated.
+      */
+
+      if (
+
+        result.trackingState !== "tracked"
+
+      ) {
+
+        return;
+
+      }
+
+
+      const savedPose =
+        copyPose(pose);
+
+
+      /*
+        Immediately lock using the SLAM reference
+        frame.
+
+        Even if native XRAnchor isn't supported,
+        this position remains in world coordinates.
+      */
+
+      lockToWorld(savedPose);
+
+
+
+      /* ================================================
+         OPTIONAL NATIVE XR ANCHOR
+
+         If browser/ARCore supports anchors,
+         attach a true native SLAM anchor.
+      ================================================ */
+
+      if (
+
+        typeof frame.createAnchor ===
+        "function" &&
+
+        !anchorRequestStarted
+
+      ) {
+
+        anchorRequestStarted = true;
+
+
+        try {
+
+          const identityTransform =
+            new XRRigidTransform();
+
+
+          frame.createAnchor(
+
+            identityTransform,
+
+            result.imageSpace
+
+          )
+
+          .then((anchor) => {
+
+            xrAnchor = anchor;
+
+
+            console.log(
+
+              "✅ NATIVE XR ANCHOR CREATED"
+
+            );
+
+          })
+
+          .catch((error) => {
+
+            /*
+              Not fatal.
+
+              The frozen world-space position
+              remains usable because WebXR's local
+              reference space itself is SLAM tracked.
+            */
+
+            console.warn(
+
+              "⚠️ Native XRAnchor unavailable.",
+              "Using SLAM reference-space fallback.",
+
+              error
+
+            );
+
+          });
+
+        }
+
+        catch (error) {
+
+          console.warn(
+
+            "⚠️ Anchor creation failed",
+
+            error
+
+          );
+
+        }
+
+      }
+
+    }
+
+
+
+    /* ==========================================================
+       XR FRAME LOOP
+    ========================================================== */
+
+    function onXRFrame(
+
+      time,
+
+      frame
+
+    ) {
+
+      if (!xrSession) {
+
+        return;
+
+      }
+
+
+      xrSession.requestAnimationFrame(
+        onXRFrame
+      );
+
+
+      /*
+        VERY IMPORTANT:
+
+        Use THREE WebXR's current reference space.
+
+        This guarantees our entity coordinates match
+        the camera's SLAM coordinate system.
+      */
+
+      const referenceSpace =
+        scene.renderer.xr.getReferenceSpace();
+
+
+      if (!referenceSpace) {
+
+        return;
+
+      }
+
+
+
+      /* ========================================================
+         PHASE 1
+         FIND IMAGE
+      ======================================================== */
+
+      if (!localized) {
+
+        if (
+
+          typeof frame.getImageTrackingResults !==
+          "function"
+
+        ) {
+
+          setStatus(
+            "Image tracking unsupported"
+          );
+
+          return;
+
+        }
+
+
+        const results =
+          frame.getImageTrackingResults();
+
+
+        for (const result of results) {
+
+          /*
+            Only one tracking image:
+
+            index 0
+          */
+
+          if (
+
+            result.index === 0
+
+          ) {
+
+            handleImageDetection(
+
+              frame,
+
+              result,
+
+              referenceSpace
+
+            );
+
+            break;
+
+          }
+
+        }
+
+      }
+
+
+
+      /* ========================================================
+         PHASE 2
+         NATIVE SLAM ANCHOR
+
+         Image visibility no longer matters.
+      ======================================================== */
+
+      if (
+
+        localized &&
+        xrAnchor
+
+      ) {
+
+        const anchorPose =
+          frame.getPose(
+
+            xrAnchor.anchorSpace,
+
+            referenceSpace
+
+          );
+
+
+        /*
+          Anchor may occasionally be temporarily
+          unavailable during SLAM correction.
+
+          If null:
+          KEEP previous pose.
+
+          Do not hide elk.
+        */
+
+        if (anchorPose) {
+
+          applyPose(anchorPose);
+
+        }
+
+      }
+
+    }
+
+
+
+    /* ==========================================================
+       START HYBRID AR
+    ========================================================== */
+
+    async function startAR() {
+
+      startButton.disabled = true;
+
+      setStatus(
+        "Preparing AR..."
+      );
+
+
+      try {
+
+        await waitForScene();
+
+
+        /* ================================================
+           WEBXR CHECK
+        ================================================ */
+
+        if (!navigator.xr) {
+
+          throw new Error(
+
+            "WebXR is not supported by this browser."
+
+          );
+
+        }
+
+
+        const supported =
+          await navigator.xr.isSessionSupported(
+
+            "immersive-ar"
+
+          );
+
+
+        if (!supported) {
+
+          throw new Error(
+
+            "Immersive WebXR AR is not available on this device."
+
+          );
+
+        }
+
+
+
+        /* ================================================
+           LOAD ORIGINAL TARGET IMAGE
+        ================================================ */
+
+        setStatus(
+          "Loading tracking image..."
+        );
+
+
+        const imageBitmap =
+          await loadTrackingImage(
+
+            TARGET_IMAGE_URL
+
+          );
+
+
+        /* ================================================
+           PREPARE THREE / A-FRAME WEBXR
+        ================================================ */
+
+        scene.renderer.xr.enabled =
+          true;
+
+
+        scene.renderer.xr.setReferenceSpaceType(
+
+          "local"
+
+        );
+
+
+
+        /* ================================================
+           REQUEST IMAGE TRACKING + SLAM
+        ================================================ */
+
+        setStatus(
+          "Starting camera..."
+        );
+
+
+        xrSession =
+          await navigator.xr.requestSession(
+
+            "immersive-ar",
+
+            {
+
+              /*
+                Image tracking is REQUIRED.
+
+                If unsupported we want the request
+                to fail rather than silently start
+                an unusable AR session.
+              */
+
+              requiredFeatures: [
+
+                "image-tracking"
+
+              ],
+
+
+              /*
+                Anchors improve stability but
+                aren't required because we have
+                world-space SLAM fallback.
+              */
+
+              optionalFeatures: [
+
+                "anchors",
+
+                "dom-overlay"
+
+              ],
+
+
+              trackedImages: [
+
+                {
+
+                  image:
+                    imageBitmap,
+
+                  widthInMeters:
+                    TARGET_WIDTH_METERS
+
+                }
+
+              ],
+
+
+              domOverlay: {
+
+                root: overlay
+
+              }
+
+            }
+
+          );
+
+
+
+        /* ================================================
+           CONNECT XR SESSION TO A-FRAME
+        ================================================ */
+
+        await scene.renderer.xr.setSession(
+
+          xrSession
+
+        );
+
+
+        console.log(
+          "✅ WEBXR SESSION STARTED"
+        );
+
+
+
+        /* ================================================
+           PRESERVE OLD MINDAR SCALE
+
+           MindAR target coordinate width ≈ 1 unit.
+
+           WebXR uses meters.
+
+           Therefore this wrapper converts your
+           previous target-relative transforms into
+           physical meters.
+        ================================================ */
+
+        targetSpace.object3D.scale.setScalar(
+
+          TARGET_WIDTH_METERS
+
+        );
+
+
+
+        /* ================================================
+           CHECK TARGET QUALITY
+        ================================================ */
+
+        if (
+
+          typeof xrSession.getTrackedImageScores ===
+          "function"
+
+        ) {
+
+          try {
+
+            const scores =
+              await xrSession.getTrackedImageScores();
+
+
+            console.log(
+
+              "Image tracking score:",
+
+              scores
+
+            );
+
+
+            if (
+
+              scores[0] === "untrackable"
+
+            ) {
+
+              throw new Error(
+
+                "The target image is considered untrackable."
+
+              );
+
+            }
+
+          }
+
+          catch (error) {
+
+            console.warn(
+
+              "Tracking score unavailable",
+
+              error
+
+            );
+
+          }
+
+        }
+
+
+
+        /* ================================================
+           UI
+        ================================================ */
+
+        startScreen.style.display =
+          "none";
+
+
+        setStatus(
+
+          "Point camera at target image"
+
+        );
+
+
+
+        /* ================================================
+           XR LOOP
+        ================================================ */
+
+        xrSession.requestAnimationFrame(
+
+          onXRFrame
+
+        );
+
+
+
+        /* ================================================
+           SESSION END
+        ================================================ */
+
+        xrSession.addEventListener(
+
+          "end",
+
+          () => {
+
+            console.log(
+              "⏹ WEBXR SESSION ENDED"
+            );
+
+
+            xrSession = null;
+
+            xrAnchor = null;
+
+            localized = false;
+
+            anchorRequestStarted = false;
+
+
+            worldAnchor.setAttribute(
+
+              "visible",
+
+              false
+
+            );
+
+
+            resetAnimation();
+
+
+            resetButton.style.display =
+              "none";
+
+
+            statusElement.style.display =
+              "none";
+
+
+            startScreen.style.display =
+              "flex";
+
+
+            startButton.disabled =
+              false;
+
+          }
+
+        );
+
+      }
+
+      catch (error) {
+
+        console.error(
+
+          "❌ AR START ERROR",
+
+          error
+
+        );
+
+
+        setStatus(
+
+          error.message ||
+          "Unable to start AR"
+
+        );
+
+
+        startButton.disabled =
+          false;
+
+      }
+
+    }
+
+
+
+    /* ==========================================================
+       RESET / RESCAN
+    ========================================================== */
+
+    function resetLocalization() {
+
+      console.log(
+
+        "🔄 RESETTING WORLD ANCHOR"
+
+      );
+
+
+      if (xrAnchor) {
+
+        try {
+
+          xrAnchor.delete();
+
+        }
+
+        catch (error) {
+
+          console.warn(
+
+            "Could not delete anchor",
+
+            error
+
+          );
+
+        }
+
+      }
+
+
+      xrAnchor = null;
+
+      localized = false;
+
+      anchorRequestStarted = false;
+
+
+      worldAnchor.setAttribute(
+
+        "visible",
+
+        false
+
+      );
+
+
+      resetAnimation();
+
+
+      resetButton.style.display =
+        "none";
+
+
+      setStatus(
+
+        "Point camera at target image"
+
+      );
+
+    }
+
+
+
+    /* ==========================================================
+       BUTTON EVENTS
+    ========================================================== */
+
+    startButton.addEventListener(
+
+      "click",
+
+      startAR
+
+    );
+
+
+    resetButton.addEventListener(
+
+      "click",
+
+      resetLocalization
+
+    );
+
+  </script>
+
+</body>
 </html>
