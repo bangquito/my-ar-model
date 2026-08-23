@@ -2,72 +2,27 @@
 <html>
   <head>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>MindAR with Custom Welcome</title>
-    <!-- Include MindAR and A-Frame libraries -->
+    <title>WebAR MindAR SLAM</title>
+    <!-- Include MindAR A-Frame library -->
     <script src="https://aframe.io"></script>
     <script src="https://jsdelivr.net"></script>
-    
-    <style>
-      /* Style for your custom onboarding screen */
-      #splash-screen {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: #1a1a1a;
-        color: #ffffff;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        z-index: 9999;
-        font-family: sans-serif;
-        text-align: center;
-        padding: 20px;
-        box-sizing: border-box;
-      }
-      
-      #start-btn {
-        background-color: #4CAF50;
-        color: white;
-        border: none;
-        padding: 15px 30px;
-        font-size: 18px;
-        border-radius: 8px;
-        cursor: pointer;
-        margin-top: 20px;
-        font-weight: bold;
-      }
-    </style>
   </head>
-  
   <body style="margin: 0; overflow: hidden;">
 
-    <!-- 1. CUSTOM SPLASH SCREEN -->
-    <div id="splash-screen">
-      <h1>Hybrid Image AR Experience</h1>
-      <p>Scan the target image to unlock the 3D model.</p>
-      <button id="start-btn" onclick="startMindAR()">Start AR Mode</button>
-    </div>
-
-    <!-- 2. SCENE (autoStart: false) -->
-    <a-scene mindar-image="imageTargetSrc: ./targets.mind; autoStart: false; maxTrack: 1" embedded ...>
+    <!-- 
+      The scene initializes and requests camera permissions instantly on load.
+      'uiLoading: no' and 'uiScanning: no' hide native engine overlays.
+    -->
+    <a-scene mindar-image="imageTargetSrc: ./targets.mind; autoStart: true; maxTrack: 1; uiLoading: no; uiScanning: no;" embedded color-space="sRGB" renderer="colorManagement: true, physicallyCorrectLights" vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+      
       <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+      <!-- The 3D content attached to your primary image target index -->
       
         <a-box position="0 0 0" scale="0.5 0.5 0.5" color="blue"></a-box>
       
+      
     </a-scene>
 
-    <!-- 3. JAVASCRIPT CONTROL -->
-    <script>
-      function startMindAR() {
-        document.getElementById('splash-screen').style.display = 'none';
-        const sceneEl = document.querySelector('a-scene');
-        if (sceneEl.hasLoaded) {
-          sceneEl.systems["mindar-image-system"].start(); // Triggers camera access
-        }
-      }
-    </script>
   </body>
 </html>
