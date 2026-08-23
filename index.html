@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ELK AR</title>
+
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/aframe-extras@7.5.0/dist/aframe-extras.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+  <script>
+    AFRAME.registerComponent("smooth-target-follow", {
+      schema: {
+        target: { type: "selector" },
+        positionSmoothing: { default: 0.12 },
+        rotationSmoothing: { default: 0.10 }
+      },
+
+      init() {
+        this.following = false;
+        this.hasPose = false;
+        this.targetPosition = new THREE.Vector3();
+        this.targetQuaternion = new THREE.Quaternion();
+        this.targetScale = new THREE.Vector3();
+        this.parentQuaternion = new THREE.Quaternion();
+
+        this.startFollowing = (snap = false) => {
+          this.following = true;
+          if (snap) this.hasPose = false;
+        };
+
+        this.stopFollowing = () => {
+          this.following = false;
+        };
+      },
+
+      tick(time, delta) {
+        if (!this.following || !this.data.target) return;
+
+        const source = this.data.target.object3D;
+        const destination = this.el.object3D;
+
+        source.updateWorldMatrix(true, false);
+        source.getWorldPosition(this.targetPosition);
+        source.getWorldQuaternion(this.targetQuaternion);
+        source.getWorldScale(this.targetScale);
+
+        if (destination.parent) {
+          destination.parent.updateWorldMatrix(true, false);
+          destination.parent.worldToLocal(this.targetPosition);
+          destination.parent.getWorldQuaternion(this.parentQuaternion);
+          this.parentQuaternion.invert();
+          this.targetQuaternion.premultiply(this.parentQuaternion);
+        }
+
+        if (!this.hasPose) {
+          destination.position.copy(this.targetPosition);
+          destination.quaternion.copy(this.targetQuaternion);
+          destination.scale.copy(this.targetScale);
+          this.hasPose = true;
+          return;
+        }
+
+        const frameRatio = Math.max(delta, 16.67) / 16.67;
+        const positionAlpha = 1 - Math.pow(1 - this.data.positionSmoothing, frameRatio);
+        const rotationAlpha = 1 - Math.pow(1 - this.data.rotationSmoothing, frameRatio);
+
+        destination.position.lerp(this.targetPosition, positionAlpha);
+        destination.quaternion.slerp(this.targetQuaternion, rotationAlpha);
+        destination.scale.lerp(this.targetScale, positionAlpha);
+      }
+    });
+  </script>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+    }
+
+    body { position: fixed; }
+    a-scene { position: absolute; width: 100%; height: 100%; }
+    .a-enter-vr { display: none !important; }
+  </style>
+</head>
+
+<body>
+  <a-scene
+    id="scene"
+    mindar-image="
+      imageTargetSrc: ./targets.mind;
+      autoStart: true;
+      uiLoading: true;
+      uiScanning: true;
+      uiError: true;
+      filterMinCF: 0.001;
+      filterBeta: 50;
+      warmupTolerance: 5;
+      missTolerance: 15;
+    "
+    embedded
+    color-space="sRGB"
+    renderer="colorManagement: true; physicallyCorrectLights: true; antialias: true;"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
+  >
+
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <a-entity light="type: ambient; intensity: 1.5;"></a-entity>
+    <a-entity light="type: directional; intensity: 1;" position="1 2 1"></a-entity>
+
+    <!-- Raw MindAR target pose -->
+    <a-entity id="elkTarget" mindar-image-target="targetIndex: 0"></a-entity>
+
+    <!-- Smoothed pose used by the visible model -->
+    <a-entity
+      id="stableAnchor"
+      visible="false"
+      smooth-target-follow="target: #elkTarget; positionSmoothing: 0.12; rotationSmoothing: 0.10;"
+    >
+      <a-entity
+        id="elk"
+        gltf-model="url(./elkfin.glb)"
+        position="-0.8 0 0"
+        rotation="90 0 0"
+        scale="0.5 0.5 0.5"
+        visible="true">
+      </a-entity>
+    </a-entity>
+
+  </a-scene>
+
+  <script>
+    const scene = document.querySelector("#scene");
+    const target = document.querySelector("#elkTarget");
+    const stableAnchor = document.querySelector("#stableAnchor");
+    const elk = document.querySelector("#elk");
+
+    let modelLoaded = false;
+    let targetIsTracked = false;
+    let animationStarted = false;
+    let lostTimer = null;
+
+    const LOST_GRACE_MS = 1000;
+
+    function getSmoothFollow() {
+      return stableAnchor.components["smooth-target-follow"];
+    }
+
+    function startAnimation() {
+      if (!modelLoaded || animationStarted) return;
+
+      elk.setAttribute("animation-mixer", {
+        clip: "*",
+        loop: "repeat",
+        repetitions: Infinity,
+        timeScale: 1
+      });
+
+      animationStarted = true;
+      console.log("▶ ELK ANIMATION STARTED");
+    }
+
+    function resetAnimation() {
+      if (!animationStarted) return;
+      elk.removeAttribute("animation-mixer");
+      animationStarted = false;
+      console.log("⏹ ELK ANIMATION RESET");
+    }
+
+    function activateModel(snapToTarget = false) {
+      if (!modelLoaded || !targetIsTracked) return;
+
+      clearTimeout(lostTimer);
+      lostTimer = null;
+
+      const follower = getSmoothFollow();
+      if (follower) follower.startFollowing(snapToTarget);
+
+      stableAnchor.setAttribute("visible", true);
+      startAnimation();
+    }
+
+    scene.addEventListener("loaded", () => {
+      console.log("✅ A-FRAME SCENE READY");
+    });
+
+    elk.addEventListener("model-loaded", () => {
+      console.log("✅ ELK GLB LOADED");
+      modelLoaded = true;
+
+      const object = elk.getObject3D("mesh");
+      if (!object) {
+        console.error("❌ NO ELK MESH FOUND");
+        return;
+      }
+
+      object.traverse((node) => {
+        if (node.isMesh || node.isSkinnedMesh) node.frustumCulled = false;
+
+        if (node.material) {
+          const materials = Array.isArray(node.material) ? node.material : [node.material];
+          materials.forEach((material) => {
+            material.side = THREE.DoubleSide;
+            material.needsUpdate = true;
+          });
+        }
+      });
+
+      console.log("✅ ELK MESH READY");
+
+      if (targetIsTracked) activateModel(true);
+    });
+
+    elk.addEventListener("model-error", (event) => {
+      console.error("❌ ELK GLB LOAD ERROR:", event);
+    });
+
+    target.addEventListener("targetFound", () => {
+      console.log("✅ TARGET FOUND");
+
+      const wasHidden = stableAnchor.getAttribute("visible") === false;
+      targetIsTracked = true;
+
+      clearTimeout(lostTimer);
+      lostTimer = null;
+
+      // Snap only after a true long loss. Short interruptions continue smoothly.
+      activateModel(wasHidden);
+    });
+
+    target.addEventListener("targetLost", () => {
+      console.log("⚠️ TARGET TEMPORARILY LOST");
+      targetIsTracked = false;
+
+      const follower = getSmoothFollow();
+      if (follower) follower.stopFollowing();
+
+      clearTimeout(lostTimer);
+
+      // Freeze at the last good pose for a short grace period instead of blinking.
+      lostTimer = setTimeout(() => {
+        if (targetIsTracked) return;
+
+        stableAnchor.setAttribute("visible", false);
+        resetAnimation();
+        console.log("⏹ TARGET LOST - ELK HIDDEN");
+      }, LOST_GRACE_MS);
+    });
+  </script>
+</body>
+</html>
